@@ -1,0 +1,197 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" >
+
+
+  <xacro:property name="M_PI" value="3.14159"/> 
+  <xacro:property name="laser_min_range" value="0.1"/>
+  <xacro:property name="laser_max_range" value="100.0"/>
+  <xacro:property name="ros_topic" value="scan"/>
+  <xacro:property name="samples" value="24000"/>
+  <xacro:property name="downsample" value="2"/>
+
+  
+  <xacro:macro name="null_inertial">
+    <inertial>
+      <mass value="0.1"/>
+    <inertia ixx="0.01" ixy="0" ixz="0"
+          iyy="0.01" iyz="0"
+          izz="0.01"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- <xacro:property name="mass" value="0.265" />
+  <xacro:property name="length" value="0.065" />
+  <xacro:property name="width" value="0.065" />
+  <xacro:property name="height" value="0.06" />
+
+  <xacro:macro name="box_inertia" params="m w h d">
+    <inertial>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 ${pi/2}"/>
+      <mass value="${m}"/>
+      <inertia ixx="${(m/12) * (h*h + d*d)}" ixy="0.0" ixz="0.0" iyy="${(m/12) * (w*w + d*d)}" iyz="0.0" izz="${(m/12) * (w*w + h*h)}"/>
+    </inertial>
+  </xacro:macro> -->
+
+  
+  <xacro:macro name="Livox_Mid_gazebo_sensor" params="visualize:=True update_rate:=10 resolution:=0.002 noise_mean:=0.0 noise_stddev:=0.01 name:=livox topic:=mid360 ">
+    <gazebo reference="${name}">
+      <sensor type="ray" name="${name}">
+        <pose>0 0 0 0 0 0</pose>
+        <visualize>True</visualize>
+        <update_rate>${update_rate}</update_rate>
+        <!-- This ray plgin is only for visualization. -->
+        <plugin name="gazebo_ros_laser_controller" filename="liblivox_laser_simulation.so">
+          <ray>
+            <scan>
+              <horizontal>
+                <samples>100</samples>
+                <resolution>1</resolution>
+                <min_angle>-3.1415926535897931</min_angle>
+                <max_angle>3.1415926535897931</max_angle>
+              </horizontal>
+              <vertical>
+                <samples>360</samples>
+                <resolution>1</resolution>
+                <min_angle>-3.1415926535897931</min_angle>
+                <max_angle>3.1415926535897931</max_angle>
+              </vertical>
+            </scan>
+            <range>
+              <min>${laser_min_range}</min>
+              <max>${laser_max_range}</max>
+              <resolution>${resolution}</resolution>
+            </range>
+            <noise>
+              <type>gaussian</type>
+              <mean>${noise_mean}</mean>
+              <stddev>${noise_stddev}</stddev>
+            </noise>
+          </ray>
+          
+          <visualize>${visualize}</visualize>
+          <samples>${samples}</samples>
+          <downsample>${downsample}</downsample>
+          <csv_file_name>package://livox_laser_simulation/scan_mode/mid360-real-centr.csv</csv_file_name>
+          <!-- mid360-real-centr.csv -->
+          <publish_pointcloud_type>3</publish_pointcloud_type>
+          <ros_topic>${topic}</ros_topic>
+          <frameName>body</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:macro name="livox_imu_macro" params="connected_to imu_name topic xyz:='0 0 0' rpy:='0 0 0'">
+        <!-- Imu is fixed to the base link -->
+        <joint name="${imu_name}_joint" type="fixed">
+            <origin xyz="${xyz}" rpy="${rpy}"/>
+            <parent link="${connected_to}"/>
+            <child link="${imu_name}"/>
+        </joint>
+        <!-- Imu link -->
+        <link name="${imu_name}">
+            <inertial>
+                <mass value="0.01"/>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/>
+            </inertial>
+            <visual>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <geometry>
+                    <box size="0.015 0.015 0.004"/>
+                </geometry>
+            </visual>
+            <material name="orange">
+                <color rgba="255 108 10 255"/>
+            </material>
+        </link>
+      <!-- IMU plugin for 'body_link' -->
+      <gazebo reference="${imu_name}">
+        <gravity>true</gravity>
+        <sensor name="imu_sensor" type="imu">
+          <always_on>true</always_on>
+          <update_rate>200</update_rate>
+          <visualize>true</visualize>
+          <topic>__default_topic__</topic>
+          <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+            <topicName>${topic}</topicName>
+            <bodyName>${imu_name}</bodyName>
+            <updateRateHZ>200.0</updateRateHZ>
+            <gaussianNoise>0.0</gaussianNoise>
+            <xyzOffset>0 0 0</xyzOffset>
+            <rpyOffset>0 0 0</rpyOffset>
+            <frameName>livox_frame</frameName>
+          </plugin>
+          <pose>0 0 0 0 0 0</pose>
+        </sensor>
+      </gazebo>
+  </xacro:macro>
+
+  <xacro:macro name="livox_Mid_360" params="parent visualize:=True name:=livox lidarTopic:=mid360 imuTopic *origin">
+    <!-- lidar body, with origin at livox_base -->
+    <joint name="${name}_pose_frame_joint" type="fixed">
+        <xacro:insert_block name="origin"/>
+        <parent link="${parent}"/>
+        <child link="${name}_pose_frame"/>
+    </joint>
+    <link name="${name}_pose_frame"/>
+
+    <joint name="${name}_pose_joint" type="fixed">
+        <!-- <origin xyz="0 0 0" rpy="${90 * deg_to_rad} 0 ${-90 * deg_to_rad}"/> -->
+        <origin xyz="0 0 0" rpy="0 0 0" /> 
+        <parent link="${name}_pose_frame"/>
+        <child link="${name}_base"/>
+    </joint>
+
+
+    <link name="${name}_base">
+      <!-- <xacro:box_inertia m="${length}" w="${width}" d="${length}" h="${height}"/> -->
+      <xacro:null_inertial/>
+
+       <visual> 
+        <origin xyz="0.0325 -0.0325 -0.047" rpy="1.57 0 3.14"/>
+        <geometry>
+          <mesh filename="/home/ashow/ocs2/src/livox_laser_simulation/meshes/mid-360-asm.STL" scale="0.001 0.001 0.001" >
+          </mesh>
+        </geometry>
+      </visual>
+      <!--
+      <collision>
+		    <origin xyz="0.0325 -0.0325 -0.047" rpy="1.57 0 3.14" /> 
+        <geometry> 
+          <mesh filename="/home/ashow/ocs2/src/livox_laser_simulation/meshes/mid-360-asm.STL" scale="0.001 0.001 0.001"> </mesh> 
+        </geometry>
+      </collision> -->
+    </link>
+    
+    <link name="${name}">
+      <xacro:null_inertial/>
+      <visual>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <box size="0.01 0.01 0.01"/>
+            </geometry>
+            <material name="red">
+              <color rgba="1.0 0.0 0.0 1.0" />
+            </material>
+      </visual>
+    </link>
+
+    <joint name="${name}_to_${name}_base_joint" type="fixed">
+      <parent link="${name}_base"/>
+      <child link="${name}"/>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+    </joint>
+
+    <xacro:Livox_Mid_gazebo_sensor name="${name}" visualize="${visualize}" topic="${lidarTopic}"/>
+  
+    <!-- 检查imuTopic是否被赋值 -->
+    <xacro:if value="${imuTopic != ''}">
+        <xacro:livox_imu_macro connected_to="${name}_base" imu_name="livox_imu" topic="${imuTopic}" xyz="0. 0. 0." rpy="0. 0. 0."/>
+    </xacro:if>
+
+
+    </xacro:macro>
+
+
+</robot>

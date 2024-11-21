@@ -1,6 +1,17 @@
+/*
+ * @Author: linzuen 13415257309@163.com
+ * @Date: 2024-11-06 15:59:46
+ * @LastEditors: linzuen 13415257309@163.com
+ * @LastEditTime: 2024-11-06 16:01:20
+ * @FilePath: /src/livox_laser_simulation/include/livox_laser_simulation/livox_points_plugin.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //
 // Created by lfc on 2021/2/28.
 //
+
+#ifndef FBB3497A_EA9E_43CF_B84B_75031EFBFCA2
+#define FBB3497A_EA9E_43CF_B84B_75031EFBFCA2
 
 #ifndef SRC_GAZEBO_LIVOX_POINTS_PLUGIN_H
 #define SRC_GAZEBO_LIVOX_POINTS_PLUGIN_H
@@ -14,7 +25,9 @@ struct AviaRotateInfo {
     double time;
     double azimuth;
     double zenith;
+    uint8_t line;
 };
+
 
 class LivoxPointsPlugin : public RayPlugin {
  public:
@@ -73,12 +86,24 @@ class LivoxPointsPlugin : public RayPlugin {
     virtual void OnNewLaserScans();
 
  private:
+    enum PointCloudType {
+        SENSOR_MSG_POINT_CLOUD = 0,
+        SENSOR_MSG_POINT_CLOUD2_POINTXYZ = 1,
+        SENSOR_MSG_POINT_CLOUD2_LIVOXPOINTXYZRTLT = 2,
+        livox_laser_simulation_CUSTOM_MSG = 3,
+    };
+
     void InitializeRays(std::vector<std::pair<int, AviaRotateInfo>>& points_pair,
                         boost::shared_ptr<physics::LivoxOdeMultiRayShape>& ray_shape);
 
     void InitializeScan(msgs::LaserScan*& scan);
 
     void SendRosTf(const ignition::math::Pose3d& pose, const std::string& father_frame, const std::string& child_frame);
+
+    void PublishPointCloud(std::vector<std::pair<int, AviaRotateInfo>>& points_pair);
+    void PublishPointCloud2XYZ(std::vector<std::pair<int, AviaRotateInfo>>& points_pair);
+    void PublishLivoxROSDriverCustomMsg(std::vector<std::pair<int, AviaRotateInfo>>& points_pair);
+    void PublishPointCloud2XYZRTLT(std::vector<std::pair<int, AviaRotateInfo>>& points_pair);
 
     boost::shared_ptr<physics::LivoxOdeMultiRayShape> rayShape;
     gazebo::physics::CollisionPtr laserCollision;
@@ -98,11 +123,19 @@ class LivoxPointsPlugin : public RayPlugin {
     int64_t currStartIndex = 0;
     int64_t maxPointSize = 1000;
     int64_t downSample = 1;
+    uint16_t publishPointCloudType;
+    bool visualize = false;
+    std::string frameName = "livox";
 
     double maxDist = 400.0;
     double minDist = 0.1;
+
+    bool useInf = true;
 };
 
 }  // namespace gazebo
 
 #endif  // SRC_GAZEBO_LIVOX_POINTS_PLUGIN_H
+
+
+#endif /* FBB3497A_EA9E_43CF_B84B_75031EFBFCA2 */

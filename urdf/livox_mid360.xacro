@@ -78,6 +78,7 @@
 		  </mesh> </geometry>
       </collision>
     </link>
+    
     <link name="${name}">
       <xacro:null_inertial/>
     </link>
